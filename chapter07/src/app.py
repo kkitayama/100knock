@@ -1,5 +1,4 @@
 from flask import Flask, render_template, request
-from itertools import islice
 from pymongo import MongoClient
 import pymongo
 import pandas as pd
@@ -27,7 +26,7 @@ class Artist_searcher:
             return collection_artist.find({"tags.value":self.query})
 
     def sort_pymongo_rating(self, mongo):
-        for post in islice(mongo.sort("rating.count", -1), 10):
+        for post in mongo.sort("rating.count", -1).limit(10):
             yield post
 
     def get_info(self, post):
@@ -59,14 +58,15 @@ class Artist_searcher:
                           columns=['name','alias','area','type','begin'])
         return df
 
-# ------------------
+
+
+app = Flask(__name__)
 
 client = MongoClient('localhost', 27017)
 db_artist = client.database_artist
 collection_artist = db_artist.collection_artist
 
 searcher = Artist_searcher()
-app = Flask(__name__)
 
 @app.route('/')
 def index():
@@ -74,15 +74,15 @@ def index():
 
 @app.route('/post', methods=['GET', 'POST'])
 def search():
-    query = request.form['query']
     select_type = request.form['select_type']
+    query = request.form['query']
     searcher.set_info(query=query, select_type=select_type)
-    df = searcher.get_df().set_index("name").to_html(classes='books')
+    df = searcher.get_df().to_html(classes='books')
 
     return render_template('index.html',
-                            data_frame=df,
+                            select_type=select_type,
                             query=query,
-                            select_type=select_type)
+                            data_frame=df)
 
 if __name__ == "__main__":
     app.debug=True
